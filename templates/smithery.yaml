@@ -1,0 +1,31 @@
+# Smithery project config — https://smithery.ai/docs/build/project-config
+#
+# Container runtime: Smithery builds the Dockerfile and connects over
+# Streamable HTTP. The kit honors PORT (Smithery sets it) and serves MCP at
+# /mcp by default. Copy to the server repo root and fill configSchema.
+
+runtime: container
+
+build:
+  dockerfile: Dockerfile
+  dockerBuildPath: .
+
+startCommand:
+  type: http
+  configSchema:
+    type: object
+    properties:
+      mcpAuthToken:
+        type: string
+        title: MCP bearer token
+        description: Value for MCP_AUTH_TOKEN (clients send Authorization: Bearer …).
+      upstreamApiKey:
+        type: string
+        title: Upstream API key
+        description: Service API key mapped to your server's env var.
+    required:
+      - mcpAuthToken
+      - upstreamApiKey
+  exampleConfig:
+    mcpAuthToken: "replace-me"
+    upstreamApiKey: "replace-me"

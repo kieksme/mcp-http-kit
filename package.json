@@ -1,0 +1,96 @@
+{
+  "name": "@kieksme/mcp-http-kit",
+  "version": "0.1.0",
+  "description": "Shared Streamable HTTP transport, auth (bearer + OAuth 2.1 resource server), and deploy tooling for kieksme MCP servers",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./test": {
+      "types": "./dist/test/index.d.ts",
+      "import": "./dist/test/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kieksme/mcp-http-kit.git"
+  },
+  "homepage": "https://github.com/kieksme/mcp-http-kit#readme",
+  "bugs": {
+    "url": "https://github.com/kieksme/mcp-http-kit/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "streamable-http",
+    "oauth",
+    "railway",
+    "kieksme"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "prebuild": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "pack:check": "node scripts/pack-check.mjs",
+    "example:echo": "tsx examples/echo-server/src/index.ts"
+  },
+  "dependencies": {
+    "jose": "^6.2.13"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/node": "^2.1.0",
+    "@modelcontextprotocol/server": "^2.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/node": {
+      "optional": false
+    },
+    "@modelcontextprotocol/server": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@modelcontextprotocol/node": "^2.1.1",
+    "@modelcontextprotocol/server": "^2.3.1",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.39.2",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^3.2.4",
+    "zod": "^4.6.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "packageManager": "pnpm@10.33.2"
+}

@@ -1,0 +1,44 @@
+name: Release Please
+
+# Runs on every push to main. Release Please opens/updates a release PR from Conventional Commits;
+# merging it creates the tag and GitHub release. A release created with GITHUB_TOKEN does not trigger
+# other workflows, so publish.yml is dispatched explicitly below.
+#
+# Prerequisite (once): Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests".
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # npm Trusted Publishing validates the workflow that *runs* `npm publish` (OIDC "workflow" claim),
+  # so publish.yml must be started as its own workflow run instead of workflow_call.
+  dispatch-publishers:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' && needs.release-please.outputs.tag_name != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch npm + GitHub Packages publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main -f "tag=${TAG}"
