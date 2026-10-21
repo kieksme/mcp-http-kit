@@ -1,0 +1,79 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.kieksme/REPLACE_WITH_SERVER_NAME",
+  "title": "REPLACE_WITH_TITLE",
+  "description": "REPLACE_WITH_DESCRIPTION",
+  "repository": {
+    "url": "https://github.com/kieksme/REPLACE_WITH_REPO",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/kieksme/REPLACE_WITH_REPO#readme",
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@kieksme/REPLACE_WITH_NPM_NAME",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "REPLACE_WITH_UPSTREAM_API_KEY_ENV",
+          "description": "Upstream API key for the service this MCP server wraps.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    },
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/kieksme/REPLACE_WITH_REPO",
+      "version": "0.1.0",
+      "transport": {
+        "type": "streamable-http",
+        "url": "http://localhost:3000/mcp"
+      },
+      "environmentVariables": [
+        {
+          "name": "MCP_AUTH_TOKEN",
+          "description": "Bearer token MCP clients must send (Authorization: Bearer …). Comma-separated list allowed for rotation.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "REPLACE_WITH_UPSTREAM_API_KEY_ENV",
+          "description": "Upstream API key for the service this MCP server wraps.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "MCP_ALLOWED_HOSTS",
+          "description": "Comma-separated Host allowlist (required when binding beyond localhost).",
+          "isRequired": true,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://REPLACE_WITH_PUBLIC_HOST/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer token (MCP_AUTH_TOKEN). Format: Bearer <token>",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
