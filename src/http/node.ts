@@ -38,7 +38,8 @@ export function createNodeRequestListener(options: NodeHttpServerOptions): Reque
       try {
         const urlPath = req.url ?? '/';
         const pathname = urlPath.split('?')[0] ?? '/';
-        const isHealth = req.method === 'GET' && pathname === config.http.healthPath;
+        const isHealth =
+          req.method === 'GET' && config.http.healthPaths.includes(pathname);
         const isWellKnown =
           req.method === 'GET' && pathname.startsWith('/.well-known/oauth-protected-resource');
 

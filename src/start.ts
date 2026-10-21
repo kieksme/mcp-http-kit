@@ -53,6 +53,7 @@ export async function startMcpServer(options: StartMcpServerOptions): Promise<St
   const app = createMcpHttpApp({
     createServer: options.createServer,
     config,
+    ...(options.getHealthInfo ? { getHealthInfo: options.getHealthInfo } : {}),
   });
   const server = createNodeHttpServer({ app, config });
 

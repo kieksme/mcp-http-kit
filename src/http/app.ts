@@ -2,12 +2,22 @@ import { createMcpHandler } from '@modelcontextprotocol/server';
 import { authenticateRequest } from '../auth/index.js';
 import { fromAuthInfo, toAuthInfo } from '../auth/context.js';
 import { buildProtectedResourceMetadata, resourceMetadataUrl } from '../auth/oauth.js';
-import type { KitConfig, RequestContext, ServerFactory } from '../types.js';
+import type {
+  HealthInfoProvider,
+  KitConfig,
+  RequestContext,
+  ServerFactory,
+} from '../types.js';
 import { checkHostAndOrigin } from './host-guard.js';
 
 export type McpHttpAppOptions = {
   createServer: ServerFactory;
   config: KitConfig;
+  /**
+   * Optional extra fields for the health JSON body.
+   * Merged with `status: "ok"` always winning (cannot be overridden).
+   */
+  getHealthInfo?: HealthInfoProvider;
 };
 
 export type McpHttpApp = {
@@ -49,8 +59,9 @@ function isWellKnownProtectedResource(pathname: string, mcpPath: string): boolea
  * 6. MCP handler (`createMcpHandler`) with `authInfo` pass-through
  */
 export function createMcpHttpApp(options: McpHttpAppOptions): McpHttpApp {
-  const { createServer, config } = options;
+  const { createServer, config, getHealthInfo } = options;
   const { http, auth, realm } = config;
+  const healthPaths = new Set(http.healthPaths);
 
   const mcpHandler = createMcpHandler(
     sdkCtx => {
@@ -72,8 +83,9 @@ export function createMcpHttpApp(options: McpHttpAppOptions): McpHttpApp {
     const { pathname } = url;
 
     // 1. Health — unauthenticated, no Host gate (load balancers / Railway probes)
-    if (request.method === 'GET' && pathname === http.healthPath) {
-      return jsonResponse(200, { status: 'ok' });
+    if (request.method === 'GET' && healthPaths.has(pathname)) {
+      const extra = getHealthInfo ? await getHealthInfo() : {};
+      return jsonResponse(200, { ...extra, status: 'ok' });
     }
 
     // 2. OAuth protected resource metadata (RFC 9728)
