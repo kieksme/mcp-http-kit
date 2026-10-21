@@ -51,6 +51,7 @@
   "scripts": {
     "prebuild": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "build": "tsc -p tsconfig.build.json",
+    "prepare": "node scripts/prepare.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -60,25 +61,17 @@
     "example:echo": "tsx examples/echo-server/src/index.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/node": "^2.1.0",
+    "@modelcontextprotocol/server": "^2.3.0",
     "jose": "^6.2.13"
   },
   "peerDependencies": {
     "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/server": "^2.3.0"
   },
-  "peerDependenciesMeta": {
-    "@modelcontextprotocol/node": {
-      "optional": false
-    },
-    "@modelcontextprotocol/server": {
-      "optional": false
-    }
-  },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@modelcontextprotocol/client": "^2.3.1",
-    "@modelcontextprotocol/node": "^2.1.1",
-    "@modelcontextprotocol/server": "^2.3.1",
     "@types/node": "^22.0.0",
     "eslint": "^9.39.2",
     "tsx": "^4.20.0",

@@ -45,8 +45,13 @@ export type HttpListenConfig = {
   port: number;
   /** MCP endpoint path (default `/mcp`). */
   path: string;
-  /** Unauthenticated health path (default `/health`). */
+  /** Primary unauthenticated health path (default `/health`). */
   healthPath: string;
+  /**
+   * Extra health paths served like `healthPath` (e.g. `/healthz`).
+   * Always includes `healthPath`; duplicates are removed.
+   */
+  healthPaths: string[];
   allowedHosts: string[];
   allowedOrigins: string[];
   /** Max request body size in bytes. */
@@ -54,6 +59,12 @@ export type HttpListenConfig = {
   /** When true, GET/DELETE on the MCP path are forwarded (default: 405). */
   enableSessionMethods: boolean;
 };
+
+/** Extra fields merged into the JSON health response (alongside `status: "ok"`). */
+export type HealthInfo = Record<string, unknown>;
+
+/** Optional hook to enrich `/health` (and aliases) with version, tool counts, etc. */
+export type HealthInfoProvider = () => HealthInfo | Promise<HealthInfo>;
 
 export type KitConfig = {
   transport: TransportMode;
@@ -114,6 +125,8 @@ export type StartMcpServerOptions = {
   env?: NodeJS.ProcessEnv;
   /** Optional hook fired after the HTTP server starts listening. */
   onListening?: (info: { host: string; port: number; url: string }) => void;
+  /** Optional extra fields for the health JSON body (merged under `status: "ok"`). */
+  getHealthInfo?: HealthInfoProvider;
   signal?: AbortSignal;
 };
 

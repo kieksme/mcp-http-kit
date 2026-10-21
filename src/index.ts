@@ -1,4 +1,9 @@
-export { loadConfig, isLocalhostHostname, type LoadConfigOptions } from './config.js';
+export {
+  loadConfig,
+  isLocalhostHostname,
+  resolveHealthPaths,
+  type LoadConfigOptions,
+} from './config.js';
 export {
   authenticateRequest,
   unauthorizedWwwAuthenticate,
@@ -43,6 +48,8 @@ export type {
   NoneAuthConfig,
   AuthConfig,
   HttpListenConfig,
+  HealthInfo,
+  HealthInfoProvider,
   KitConfig,
   AuthContext,
   RequestContext,

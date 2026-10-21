@@ -87,22 +87,24 @@ export function createKitContractAssertions(
 ): KitContractAssertions {
   return {
     async healthUnauthenticated() {
-      const response = await client.health();
-      if (response.status !== 200) {
-        throw new Error(`Expected /health 200, got ${response.status}`);
-      }
-      const body = (await response.json()) as { status?: string };
-      if (body.status !== 'ok') {
-        throw new Error(`Expected health status ok, got ${JSON.stringify(body)}`);
-      }
+      for (const path of config.http.healthPaths) {
+        const response = await client.fetch(path, { method: 'GET' });
+        if (response.status !== 200) {
+          throw new Error(`Expected ${path} 200, got ${response.status}`);
+        }
+        const body = (await response.json()) as { status?: string };
+        if (body.status !== 'ok') {
+          throw new Error(`Expected health status ok on ${path}, got ${JSON.stringify(body)}`);
+        }
 
-      // Health must ignore Host allowlist (Railway probes).
-      const evil = await client.fetch(config.http.healthPath, {
-        method: 'GET',
-        headers: { host: 'evil.example' },
-      });
-      if (evil.status !== 200) {
-        throw new Error(`Expected /health 200 with bad Host, got ${evil.status}`);
+        // Health must ignore Host allowlist (Railway probes).
+        const evil = await client.fetch(path, {
+          method: 'GET',
+          headers: { host: 'evil.example' },
+        });
+        if (evil.status !== 200) {
+          throw new Error(`Expected ${path} 200 with bad Host, got ${evil.status}`);
+        }
       }
     },
 

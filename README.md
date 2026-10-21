@@ -60,7 +60,8 @@ MCP_TRANSPORT=http MCP_AUTH_TOKEN=dev MCP_HTTP_HOST=127.0.0.1 pnpm example:echo
 | `PORT` | `3000` | Preferred listen port (Railway). Fallback: `MCP_HTTP_PORT` |
 | `MCP_HTTP_HOST` | `127.0.0.1` | Use `0.0.0.0` in containers |
 | `MCP_HTTP_PATH` | `/mcp` | MCP endpoint |
-| `MCP_HEALTH_PATH` | `/health` | Unauthenticated JSON `{ "status": "ok" }` |
+| `MCP_HEALTH_PATH` | `/health` | Primary unauthenticated health path |
+| `MCP_HEALTH_ALIASES` | — | Extra health paths (comma-separated), e.g. `/healthz` |
 | `MCP_ALLOWED_HOSTS` | localhost trio | Required when binding beyond localhost |
 | `MCP_ALLOWED_ORIGINS` | _(derived)_ | Optional absolute origins; else Origin hostname must be in hosts |
 | `MCP_AUTH_MODE` | `bearer` | `bearer` \| `oauth` \| `none` |
@@ -98,7 +99,7 @@ Allowed on **localhost** binds, or with `MCP_AUTH_ALLOW_NONE=true` for intention
 
 ## Request pipeline (HTTP)
 
-1. **`GET /health`** — no auth, **before** Host/Origin checks (Railway-friendly)
+1. **`GET` health paths** (`MCP_HEALTH_PATH` + `MCP_HEALTH_ALIASES`) — no auth, **before** Host/Origin checks (Railway-friendly)
 2. **OAuth well-known** — no auth, before Host checks
 3. Host / Origin allowlist → **403**
 4. MCP path; non-POST → **405** (unless session methods enabled)
@@ -106,6 +107,21 @@ Allowed on **localhost** binds, or with `MCP_AUTH_ALLOW_NONE=true` for intention
 6. Stateless `createMcpHandler` (body size limit applied)
 
 Graceful **SIGTERM** / **SIGINT** shutdown is wired by `startMcpServer`.
+
+### Health body hook
+
+Default body is `{ "status": "ok" }`. Pass `getHealthInfo` to add fields (version, tool count, …). `status: "ok"` always wins:
+
+```ts
+await startMcpServer({
+  createServer,
+  config,
+  getHealthInfo: () => ({ version: '1.2.3', tools: 12 }),
+});
+// → { "version": "1.2.3", "tools": 12, "status": "ok" }
+```
+
+Aliases via env or `loadConfig(..., { healthPathAliases: ['/healthz'] })`.
 
 ## Framework-agnostic core
 
@@ -155,14 +171,18 @@ Covered contracts: 401 without token, 403 bad Host/Origin, `/health` without aut
 
 | Export | Purpose |
 | --- | --- |
-| `loadConfig` | Env → `KitConfig` (+ legacy aliases) |
-| `startMcpServer` | stdio or HTTP lifecycle |
+| `loadConfig` / `resolveHealthPaths` | Env → `KitConfig` (+ legacy aliases) |
+| `startMcpServer` | stdio or HTTP lifecycle (`getHealthInfo` supported) |
 | `createMcpHttpApp` | Web-standard `{ fetch, close }` |
 | `createNodeHttpServer` / `createNodeRequestListener` | `node:http` |
 | `handleWithKitApp` | Fastify/Express bridge |
 | `authenticateRequest` / bearer + oauth helpers | Auth primitives |
 | `resolveUpstreamCredential` | env \| header upstream keys |
 | `@kieksme/mcp-http-kit/test` | Contract test helpers |
+
+### Git installs
+
+`prepare` builds `dist/` when it is missing (typical for `github:` / git URL deps). Published npm tarballs already include `dist`, so prepare is a no-op there.
 
 ## Scripts
 

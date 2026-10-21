@@ -58,6 +58,21 @@ await startMcpServer({ createServer, config: loadConfig(process.env, { realm: 'm
 
 Important behavior change: **`/health` is served before Host/Origin checks** so Railway (and similar) healthchecks keep working when `MCP_ALLOWED_HOSTS` is tight.
 
+If you previously exposed `/healthz` (listmonk) or custom health JSON, use:
+
+```ts
+const config = loadConfig(process.env, {
+  realm: 'my-mcp',
+  healthPathAliases: ['/healthz'], // or MCP_HEALTH_ALIASES=/healthz
+});
+
+await startMcpServer({
+  createServer,
+  config,
+  getHealthInfo: () => ({ version: VERSION, tools: TOOL_COUNT }),
+});
+```
+
 ## Per-request upstream credentials
 
 ```ts

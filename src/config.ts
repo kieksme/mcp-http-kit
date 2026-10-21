@@ -18,9 +18,33 @@ export type LoadConfigOptions = {
   defaultPath?: string;
   /** Override default health path. */
   defaultHealthPath?: string;
+  /**
+   * Extra health paths (e.g. `['/healthz']`) in addition to the primary path.
+   * Also settable via `MCP_HEALTH_ALIASES` (comma-separated).
+   */
+  healthPathAliases?: string[];
   /** Override max body size. */
   maxBodyBytes?: number;
 };
+
+function normalizePath(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+}
+
+/** Deduplicate path list while preserving order (primary first). */
+export function resolveHealthPaths(primary: string, aliases: string[] = []): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of [primary, ...aliases]) {
+    const path = normalizePath(entry);
+    if (!path || seen.has(path)) continue;
+    seen.add(path);
+    out.push(path);
+  }
+  return out;
+}
 
 function firstDefined(env: NodeJS.ProcessEnv, names: string[]): { value?: string; name?: string } {
   for (const name of names) {
@@ -194,14 +218,19 @@ export function loadConfig(
     warnings.push('MCP_HTTP_ENDPOINT is deprecated; use MCP_HTTP_PATH');
   }
 
-  const healthPath =
+  const healthPath = normalizePath(
     env.MCP_HEALTH_PATH?.trim() ||
-    env.HEALTH_ENDPOINT?.trim() ||
-    options.defaultHealthPath ||
-    DEFAULT_HEALTH;
+      env.HEALTH_ENDPOINT?.trim() ||
+      options.defaultHealthPath ||
+      DEFAULT_HEALTH,
+  );
   if (env.HEALTH_ENDPOINT && !env.MCP_HEALTH_PATH) {
     warnings.push('HEALTH_ENDPOINT is deprecated; use MCP_HEALTH_PATH');
   }
+
+  const aliasFromEnv = splitList(env.MCP_HEALTH_ALIASES);
+  const aliasFromOptions = options.healthPathAliases ?? [];
+  const healthPaths = resolveHealthPaths(healthPath, [...aliasFromOptions, ...aliasFromEnv]);
 
   const { allowedHosts, allowedOrigins } = parseAllowlists(env, host, warnings);
   const port = parsePort(portSource.value, portSource.name ?? 'PORT');
@@ -209,8 +238,9 @@ export function loadConfig(
   const http: HttpListenConfig = {
     host,
     port,
-    path: path.startsWith('/') ? path : `/${path}`,
-    healthPath: healthPath.startsWith('/') ? healthPath : `/${healthPath}`,
+    path: normalizePath(path),
+    healthPath,
+    healthPaths,
     allowedHosts,
     allowedOrigins,
     maxBodyBytes: options.maxBodyBytes ?? DEFAULT_MAX_BODY,

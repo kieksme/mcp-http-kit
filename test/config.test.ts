@@ -91,4 +91,18 @@ describe('loadConfig', () => {
       expect(config.auth.audiences).toEqual(['https://mcp.example.com/mcp']);
     }
   });
+
+  it('merges health path aliases from env and options', () => {
+    const config = loadConfig(
+      {
+        MCP_TRANSPORT: 'http',
+        MCP_AUTH_TOKEN: 'secret',
+        MCP_HTTP_HOST: '127.0.0.1',
+        MCP_HEALTH_ALIASES: '/healthz, ready',
+      },
+      { healthPathAliases: ['/healthz', '/live'] },
+    );
+    expect(config.http.healthPath).toBe('/health');
+    expect(config.http.healthPaths).toEqual(['/health', '/healthz', '/live', '/ready']);
+  });
 });
