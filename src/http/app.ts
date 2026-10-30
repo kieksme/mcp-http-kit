@@ -8,6 +8,7 @@ import type {
   RequestContext,
   ServerFactory,
 } from '../types.js';
+import { installTelemetry } from '../telemetry.js';
 import { checkHostAndOrigin } from './host-guard.js';
 
 export type McpHttpAppOptions = {
@@ -18,6 +19,8 @@ export type McpHttpAppOptions = {
    * Merged with `status: "ok"` always winning (cannot be overridden).
    */
   getHealthInfo?: HealthInfoProvider;
+  /** Env used for the tracing switch (`OTEL_EXPORTER_OTLP_ENDPOINT`); defaults to `process.env`. */
+  env?: NodeJS.ProcessEnv;
 };
 
 export type McpHttpApp = {
@@ -62,6 +65,12 @@ export function createMcpHttpApp(options: McpHttpAppOptions): McpHttpApp {
   const { createServer, config, getHealthInfo } = options;
   const { http, auth, realm } = config;
   const healthPaths = new Set(http.healthPaths);
+
+  // Opt-in tracing; unauthenticated clients must not choose our trace IDs.
+  installTelemetry({
+    ...(options.env ? { env: options.env } : {}),
+    trustIncomingContext: auth.mode !== 'none',
+  });
 
   const mcpHandler = createMcpHandler(
     sdkCtx => {

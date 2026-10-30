@@ -108,6 +108,30 @@ Allowed on **localhost** binds, or with `MCP_AUTH_ALLOW_NONE=true` for intention
 
 Graceful **SIGTERM** / **SIGINT** shutdown is wired by `startMcpServer`.
 
+## Tracing (OpenTelemetry, opt-in)
+
+Tracing is **off by default**. It switches on only when `OTEL_EXPORTER_OTLP_ENDPOINT` (or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`) is set and `OTEL_SDK_DISABLED` is not `true`. Without it the kit does not touch the SDK and `@opentelemetry/api` is never loaded.
+
+When enabled, every `tools/call` on tools registered via `McpServer.registerTool` runs in a `SERVER` span named `tools/call <tool>` with `mcp.method.name`, `gen_ai.operation.name=execute_tool` and `gen_ai.tool.name`. It works the same on stdio and HTTP, because the parent comes from `params._meta` (`traceparent`, `tracestate`; SEP-414), not from HTTP headers. Outgoing HTTP calls made inside the tool (axios, `fetch`) become child spans of it once your process has the matching OpenTelemetry HTTP/undici instrumentation.
+
+**Setup**
+
+1. Install `@opentelemetry/api` in your server (it is an optional peer dependency of the kit) plus an OpenTelemetry SDK that registers a tracer provider and a context manager, and exports to your collector.
+2. Set `OTEL_EXPORTER_OTLP_ENDPOINT`, e.g. `http://localhost:4318`.
+3. Start the SDK before the server (for ESM: `node --import ./instrumentation.mjs dist/index.js`).
+
+**Privacy defaults**
+
+| Behavior | Default | Switch |
+| --- | --- | --- |
+| Tool arguments and results on spans | not recorded | `MCP_OTEL_RECORD_PAYLOADS=true` (truncated to 4096 chars per attribute) |
+| Error messages / stack of thrown errors | not recorded, only `error.type` | same switch |
+| Baggage from `_meta` | never read | — |
+| Incoming `traceparent` on HTTP with `MCP_AUTH_MODE=none` | ignored (new root trace) | — |
+| Incoming `traceparent` with bearer / oauth, and on stdio | used as parent | — |
+
+Only the tool span is covered here. Outgoing HTTP instrumentation can record full URLs including query strings; strip or disable those for upstreams whose query carries personal data.
+
 ### Health body hook
 
 Default body is `{ "status": "ok" }`. Pass `getHealthInfo` to add fields (version, tool count, …). `status: "ok"` always wins:

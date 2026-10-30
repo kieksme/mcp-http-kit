@@ -39,6 +39,12 @@ export {
   assertHeaderModeAllowed,
   type UpstreamCredentialResult,
 } from './upstream.js';
+export {
+  isTelemetryEnabled,
+  isPayloadRecordingEnabled,
+  installTelemetry,
+  type InstallTelemetryOptions,
+} from './telemetry.js';
 export type {
   TransportMode,
   AuthMode,

@@ -2,6 +2,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { loadConfig } from './config.js';
 import { createMcpHttpApp } from './http/app.js';
 import { createNodeHttpServer } from './http/node.js';
+import { installTelemetry } from './telemetry.js';
 import type { KitConfig, StartedServer, StartMcpServerOptions } from './types.js';
 
 function publicUrl(config: KitConfig): string {
@@ -29,6 +30,8 @@ export async function startMcpServer(options: StartMcpServerOptions): Promise<St
   }
 
   if (config.transport === 'stdio') {
+    // stdio peer is the local parent process, so its trace context is trusted.
+    installTelemetry({ ...(options.env ? { env: options.env } : {}), trustIncomingContext: true });
     const handle = serveStdio(() =>
       options.createServer({
         auth: { mode: 'none', scopes: [] },
@@ -53,6 +56,7 @@ export async function startMcpServer(options: StartMcpServerOptions): Promise<St
   const app = createMcpHttpApp({
     createServer: options.createServer,
     config,
+    ...(options.env ? { env: options.env } : {}),
     ...(options.getHealthInfo ? { getHealthInfo: options.getHealthInfo } : {}),
   });
   const server = createNodeHttpServer({ app, config });
