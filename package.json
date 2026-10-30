@@ -1,6 +1,6 @@
 {
   "name": "@kieksme/mcp-http-kit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Shared Streamable HTTP transport, auth (bearer + OAuth 2.1 resource server), and deploy tooling for kieksme MCP servers",
   "type": "module",
   "main": "./dist/index.js",
