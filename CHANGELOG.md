@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/kieksme/mcp-http-kit/compare/0.4.0...0.4.1) (2026-10-31)
+
+
+### Fixed
+
+* **otel:** keep tool spans alive behind a real node:http server ([3a5ac30](https://github.com/kieksme/mcp-http-kit/commit/3a5ac30fecc328ffa38b6bbad3d16a3dd3132710))
+
 ## [0.4.0](https://github.com/kieksme/mcp-http-kit/compare/0.3.0...0.4.0) (2026-10-31)
 
 
