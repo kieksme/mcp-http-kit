@@ -57,7 +57,9 @@ async function createInstrumentations(
   if (httpModule) {
     created.http = new httpModule.HttpInstrumentation({
       // Only outgoing calls made inside a tool call: no health-check/JWKS noise, no server spans.
-      ignoreIncomingRequestHook: () => true,
+      // Not `ignoreIncomingRequestHook`: that runs the whole request handler with tracing
+      // suppressed, so the tool spans would vanish behind a real node:http server.
+      disableIncomingRequestInstrumentation: true,
       requireParentforOutgoingSpans: true,
     }) as Instrumentation;
     created.http.enable();
