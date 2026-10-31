@@ -40,6 +40,12 @@ export {
   type UpstreamCredentialResult,
 } from './upstream.js';
 export {
+  startTracing,
+  shutdownTracing,
+  type StartTracingOptions,
+  type TracingHandle,
+} from './otel.js';
+export {
   isTelemetryEnabled,
   isPayloadRecordingEnabled,
   installTelemetry,

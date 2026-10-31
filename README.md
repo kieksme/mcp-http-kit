@@ -110,27 +110,63 @@ Graceful **SIGTERM** / **SIGINT** shutdown is wired by `startMcpServer`.
 
 ## Tracing (OpenTelemetry, opt-in)
 
-Tracing is **off by default**. It switches on only when `OTEL_EXPORTER_OTLP_ENDPOINT` (or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`) is set and `OTEL_SDK_DISABLED` is not `true`. Without it the kit does not touch the SDK and `@opentelemetry/api` is never loaded.
+Tracing is **off by default**. It switches on only when `OTEL_EXPORTER_OTLP_ENDPOINT` (or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`) is set and `OTEL_SDK_DISABLED` is not `true`. Without it the kit loads no OpenTelemetry package at all.
 
-When enabled, every `tools/call` on tools registered via `McpServer.registerTool` runs in a `SERVER` span named `tools/call <tool>` with `mcp.method.name`, `gen_ai.operation.name=execute_tool` and `gen_ai.tool.name`. It works the same on stdio and HTTP, because the parent comes from `params._meta` (`traceparent`, `tracestate`; SEP-414), not from HTTP headers. Outgoing HTTP calls made inside the tool (axios, `fetch`) become child spans of it once your process has the matching OpenTelemetry HTTP/undici instrumentation.
+When enabled, a call becomes one trace across the caller, the MCP server and the upstream API:
 
-**Setup**
+```text
+MCP client / agent                      (sends traceparent + tracestate in params._meta, SEP-414)
+└─ tools/call <tool>        SERVER span  (this kit; same trace, parent = the caller's span)
+   ├─ GET  api.example.com  CLIENT span  (axios / node:http / fetch, traceparent sent to the API)
+   └─ POST api.example.com  CLIENT span
+```
 
-1. Install `@opentelemetry/api` in your server (it is an optional peer dependency of the kit) plus an OpenTelemetry SDK that registers a tracer provider and a context manager, and exports to your collector.
-2. Set `OTEL_EXPORTER_OTLP_ENDPOINT`, e.g. `http://localhost:4318`.
-3. Start the SDK before the server (for ESM: `node --import ./instrumentation.mjs dist/index.js`).
+The context travels in `params._meta`, not in HTTP headers, so it works the same on stdio and HTTP. Spans are created for every tool registered via `McpServer.registerTool`; outgoing calls are traced only **inside** a tool call (no health-check, JWKS or other background noise, no server spans for incoming HTTP).
 
-**Privacy defaults**
+### Setup
 
-| Behavior | Default | Switch |
+1. Install the OpenTelemetry packages next to the server. They are optional peer dependencies of the kit, so servers that do not trace install nothing. Versions the kit is tested with:
+
+   ```bash
+   pnpm add -E @opentelemetry/api@1.9.1 @opentelemetry/sdk-trace@2.12.0 \
+     @opentelemetry/context-async-hooks@2.12.0 @opentelemetry/resources@2.12.0 \
+     @opentelemetry/exporter-trace-otlp-http@0.223.0
+
+   # outgoing calls with axios or node:http(s):
+   pnpm add -E @opentelemetry/instrumentation-http@0.223.0
+   # outgoing calls with the global fetch:
+   pnpm add -E @opentelemetry/instrumentation-undici@0.33.0
+   ```
+
+2. Set the endpoint of an OTLP/HTTP receiver, e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`. Set `OTEL_SERVICE_NAME` to name the service (default: the server's realm). `OTEL_EXPORTER_OTLP_HEADERS` is passed on to the receiver for authentication and never logged.
+
+3. Start the server as usual: both `startMcpServer` and `createMcpHttpApp` start the tracing (`startTracing()` is exported for custom setups). No `--import` flag is needed.
+
+If a package is missing the kit logs one line naming it and the server keeps running without exported spans. An SDK the application registered itself (for example `NodeSDK`) is left alone; the kit then only creates the tool spans.
+
+### What leaves the process
+
+| Data | Default | Switch |
 | --- | --- | --- |
-| Tool arguments and results on spans | not recorded | `MCP_OTEL_RECORD_PAYLOADS=true` (truncated to 4096 chars per attribute) |
-| Error messages / stack of thrown errors | not recorded, only `error.type` | same switch |
-| Baggage from `_meta` | never read | — |
-| Incoming `traceparent` on HTTP with `MCP_AUTH_MODE=none` | ignored (new root trace) | — |
-| Incoming `traceparent` with bearer / oauth, and on stdio | used as parent | — |
+| Tool name, duration, status, `error.type` | sent | - |
+| Tool arguments and results | **not recorded** | `MCP_OTEL_RECORD_PAYLOADS=true` (truncated to 4096 chars per attribute) |
+| Error messages and stacks of thrown errors | **not recorded** | same switch |
+| Query strings, fragments and credentials in URLs of outgoing calls (`url.full`, `url.query`, ...) | **removed** before export (filters and tokens often travel there) | same switch keeps them |
+| Baggage | **never** sent to upstream APIs or read from `_meta` (only `traceparent` / `tracestate`) | - |
+| Incoming `traceparent` on HTTP with `MCP_AUTH_MODE=none` | ignored (new root trace) | - |
+| Incoming `traceparent` with bearer / oauth, and on stdio | used as the parent | - |
+| Request and response headers, request bodies | never recorded | - |
 
-Only the tool span is covered here. Outgoing HTTP instrumentation can record full URLs including query strings; strip or disable those for upstreams whose query carries personal data.
+### Try it locally
+
+The kit's own tests run against a local OTLP receiver (`test/otel.test.ts`). To look at real traces, start any OTLP/HTTP receiver, for example Jaeger:
+
+```bash
+docker run --rm -p 16686:16686 -p 4318:4318 jaegertracing/all-in-one
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 node dist/index.js
+```
+
+then open <http://localhost:16686>. Use test data and a mock upstream, not production credentials.
 
 ### Health body hook
 

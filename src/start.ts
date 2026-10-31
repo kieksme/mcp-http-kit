@@ -2,6 +2,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { loadConfig } from './config.js';
 import { createMcpHttpApp } from './http/app.js';
 import { createNodeHttpServer } from './http/node.js';
+import { startTracing } from './otel.js';
 import { installTelemetry } from './telemetry.js';
 import type { KitConfig, StartedServer, StartMcpServerOptions } from './types.js';
 
@@ -29,6 +30,12 @@ export async function startMcpServer(options: StartMcpServerOptions): Promise<St
     console.warn(`[mcp-http-kit] ${warning}`);
   }
 
+  // No-op unless OTEL_EXPORTER_OTLP_ENDPOINT is set. Awaited so the first request is traced too.
+  const tracing = await startTracing({
+    ...(options.env ? { env: options.env } : {}),
+    serviceName: config.realm,
+  });
+
   if (config.transport === 'stdio') {
     // stdio peer is the local parent process, so its trace context is trusted.
     installTelemetry({ ...(options.env ? { env: options.env } : {}), trustIncomingContext: true });
@@ -43,6 +50,7 @@ export async function startMcpServer(options: StartMcpServerOptions): Promise<St
 
     const close = async () => {
       await handle.close();
+      await tracing?.shutdown();
     };
 
     if (options.signal) {
@@ -77,6 +85,7 @@ export async function startMcpServer(options: StartMcpServerOptions): Promise<St
         server.close(error => (error ? reject(error) : resolve()));
       });
       await app.close();
+      await tracing?.shutdown();
     })();
     return closing;
   };

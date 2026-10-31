@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import type * as OtelApi from '@opentelemetry/api';
+import { awaitTracingReady } from './otel-state.js';
 
 type Api = typeof OtelApi;
 
@@ -32,7 +33,9 @@ let apiPromise: Promise<Api | undefined> | undefined;
 
 /**
  * Tracing is off unless an OTLP endpoint is configured (and the SDK is not disabled).
- * The kit only emits spans through `@opentelemetry/api`; exporting is up to the app.
+ * The tool spans go through `@opentelemetry/api`. Exporting them needs an SDK: `startTracing()`
+ * (otel.ts) sets up a minimal one from the optional OpenTelemetry peer packages, or the app
+ * registers its own.
  */
 export function isTelemetryEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.OTEL_SDK_DISABLED?.trim().toLowerCase() === 'true') return false;
@@ -130,6 +133,7 @@ function toJson(value: unknown): string {
 
 function wrapToolCallback(name: string, cb: ToolCallback): ToolCallback {
   return async (...cbArgs: unknown[]) => {
+    await awaitTracingReady(); // SDK bootstrap (otel.ts), so the first call is not lost
     const api = await loadApi();
     if (!api) return cb(...cbArgs);
 

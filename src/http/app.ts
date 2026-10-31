@@ -8,6 +8,7 @@ import type {
   RequestContext,
   ServerFactory,
 } from '../types.js';
+import { startTracing } from '../otel.js';
 import { installTelemetry } from '../telemetry.js';
 import { checkHostAndOrigin } from './host-guard.js';
 
@@ -66,7 +67,13 @@ export function createMcpHttpApp(options: McpHttpAppOptions): McpHttpApp {
   const { http, auth, realm } = config;
   const healthPaths = new Set(http.healthPaths);
 
-  // Opt-in tracing; unauthenticated clients must not choose our trace IDs.
+  // Opt-in tracing (no-op without OTEL_EXPORTER_OTLP_ENDPOINT). Idempotent, so this is harmless
+  // when startMcpServer already started it; tool calls wait for it. Fire-and-forget: it never throws.
+  void startTracing({
+    ...(options.env ? { env: options.env } : {}),
+    serviceName: config.realm,
+  });
+  // Unauthenticated clients must not choose our trace IDs.
   installTelemetry({
     ...(options.env ? { env: options.env } : {}),
     trustIncomingContext: auth.mode !== 'none',
