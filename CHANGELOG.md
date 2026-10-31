@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/kieksme/mcp-http-kit/compare/0.3.0...0.4.0) (2026-10-31)
+
+
+### Added
+
+* **otel:** opt-in OpenTelemetry SDK bootstrap with outgoing HTTP tracing ([8c545f2](https://github.com/kieksme/mcp-http-kit/commit/8c545f211cb51401a54ac080fbb735f449a71ae2))
+
 ## [0.3.0](https://github.com/kieksme/mcp-http-kit/compare/0.2.0...0.3.0) (2026-10-30)
 
 
