@@ -7,6 +7,7 @@ import * as z from 'zod/v4';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadConfig } from '../src/config.js';
 import { createMcpHttpApp } from '../src/http/app.js';
+import { createNodeHttpServer } from '../src/http/node.js';
 import { shutdownTracing, startTracing, type TracingHandle } from '../src/otel.js';
 import { sanitizeSpan, stripUrl } from '../src/otel-sanitize.js';
 import { createAppTestClient, readMcpJsonResponse } from '../src/test/helpers.js';
@@ -271,6 +272,70 @@ describe('startTracing (end to end against a local OTLP receiver)', () => {
       expect(String(headers.traceparent)).toMatch(new RegExp(`^00-${TRACE_ID}-[0-9a-f]{16}-01$`));
       expect(headers.baggage).toBeUndefined();
     }
+  });
+
+  it('also traces tool calls served by a real node:http server', async () => {
+    const servers = await startServers();
+    const env = { OTEL_EXPORTER_OTLP_ENDPOINT: servers.otlpUrl };
+    handle = await startTracing({ env, serviceName: 'otel-test' });
+
+    const config = loadConfig(
+      {
+        MCP_TRANSPORT: 'http',
+        MCP_AUTH_TOKEN: TOKEN,
+        MCP_HTTP_HOST: '127.0.0.1',
+        MCP_HTTP_PORT: '3459',
+        MCP_ALLOWED_HOSTS: '127.0.0.1,localhost',
+      },
+      { realm: 'otel-test' },
+    );
+    const app = createMcpHttpApp({
+      createServer: () => createLookupServer(servers.upstreamUrl),
+      config,
+      env,
+    });
+    const server = createNodeHttpServer({ app, config });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    cleanups.push(
+      async () => {
+        server.closeAllConnections();
+        await new Promise<void>(resolve => server.close(() => resolve()));
+      },
+      () => app.close(),
+    );
+
+    const rpc = (id: number, method: string, params: unknown) =>
+      fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}${config.http.path}`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+          authorization: `Bearer ${TOKEN}`,
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+      }).then(r => r.text());
+    await rpc(1, 'initialize', {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'otel-test', version: '0' },
+    });
+    const reply = await rpc(2, 'tools/call', {
+      name: 'lookup',
+      arguments: { term: 'x' },
+      _meta: { traceparent: TRACEPARENT },
+    });
+    expect(reply).toContain('ok');
+    await handle!.forceFlush();
+
+    const spans = decode(servers.otlpBodies);
+    const tool = spans.find(s => s.name === 'tools/call lookup');
+    expect(tool?.traceId).toBe(TRACE_ID);
+    expect(tool?.parentSpanId).toBe(PARENT_SPAN_ID);
+    const outgoing = spans.filter(s => s.scope.startsWith('@opentelemetry/instrumentation-'));
+    expect(outgoing).toHaveLength(2);
+    for (const span of outgoing) expect(span.parentSpanId).toBe(tool!.spanId);
+    // No server span for the incoming request itself (no health-check noise, no URL/headers).
+    expect(spans.filter(s => s.name.startsWith('POST') && s.parentSpanId === undefined)).toEqual([]);
   });
 
   it('traces axios calls under the tool span, with credentials and filters kept out', async () => {
